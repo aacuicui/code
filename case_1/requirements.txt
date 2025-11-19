@@ -1,0 +1,5 @@
+# 项目依赖
+python-dotenv>=1.0.0
+langchain>=0.1.0
+dashscope>=1.25.0
+# 通义千问所需的所有依赖

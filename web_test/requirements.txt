@@ -1,0 +1,5 @@
+flask>=2.3.0
+langchain-openai
+langchain-core
+python-dotenv
+asyncio

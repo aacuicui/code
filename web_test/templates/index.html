@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LangChain 主题分析工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        .main-content {
+            padding: 30px;
+        }
+        
+        .input-section {
+            margin-bottom: 30px;
+        }
+        
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        #topicInput {
+            flex: 1;
+            padding: 15px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        
+        #topicInput:focus {
+            outline: none;
+            border-color: #4facfe;
+        }
+        
+        #processBtn {
+            padding: 15px 30px;
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        #processBtn:hover:not(:disabled) {
+            transform: translateY(-2px);
+        }
+        
+        #processBtn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .examples {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .example-btn {
+            padding: 10px;
+            background: #f8f9fa;
+            border: 1px solid #e1e5e9;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+            font-size: 14px;
+        }
+        
+        .example-btn:hover {
+            background: #e9ecef;
+            border-color: #4facfe;
+        }
+        
+        .result-section {
+            display: none;
+        }
+        
+        .result-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 25px;
+            margin-top: 20px;
+            border-left: 4px solid #4facfe;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            display: none;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #4facfe;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .error {
+            background: #fee;
+            border-left-color: #e74c3c;
+            color: #c0392b;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-online {
+            background: #2ecc71;
+        }
+        
+        .status-offline {
+            background: #e74c3c;
+        }
+        
+        .footer {
+            text-align: center;
+            padding: 20px;
+            border-top: 1px solid #e1e5e9;
+            color: #6c757d;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧠 LangChain 主题分析工具</h1>
+            <p>输入任何主题，获取智能摘要、关键术语和相关问题</p>
+            <div style="margin-top: 10px;">
+                <span class="status-indicator" id="statusIndicator"></span>
+                <span id="statusText">检查服务状态...</span>
+            </div>
+        </div>
+        
+        <div class="main-content">
+            <div class="input-section">
+                <div class="input-group">
+                    <input type="text" id="topicInput" 
+                           placeholder="请输入您想要分析的主题，例如：人工智能的发展历史...">
+                    <button id="processBtn">开始分析</button>
+                </div>
+                
+                <div class="examples">
+                    <div class="example-btn" data-topic="机器学习的基本原理">机器学习</div>
+                    <div class="example-btn" data-topic="区块链技术的应用">区块链技术</div>
+                    <div class="example-btn" data-topic="气候变化的影响">气候变化</div>
+                    <div class="example-btn" data-topic="文艺复兴时期的艺术">文艺复兴</div>
+                </div>
+            </div>
+            
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>正在分析主题，请稍候...</p>
+            </div>
+            
+            <div class="result-section" id="resultSection">
+                <h2>分析结果</h2>
+                <div class="result-card" id="resultContent">
+                    <!-- 结果将在这里显示 -->
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>Powered by LangChain & Qwen AI | 本地网页应用</p>
+        </div>
+    </div>
+
+    <script>
+        // 元素引用
+        const topicInput = document.getElementById('topicInput');
+        const processBtn = document.getElementById('processBtn');
+        const loading = document.getElementById('loading');
+        const resultSection = document.getElementById('resultSection');
+        const resultContent = document.getElementById('resultContent');
+        const statusIndicator = document.getElementById('statusIndicator');
+        const statusText = document.getElementById('statusText');
+        const exampleBtns = document.querySelectorAll('.example-btn');
+        
+        // 检查服务状态
+        async function checkStatus() {
+            try {
+                const response = await fetch('/health');
+                const data = await response.json();
+                
+                if (data.llm_initialized) {
+                    statusIndicator.className = 'status-indicator status-online';
+                    statusText.textContent = '服务正常运行';
+                } else {
+                    statusIndicator.className = 'status-indicator status-offline';
+                    statusText.textContent = '语言模型未初始化';
+                }
+            } catch (error) {
+                statusIndicator.className = 'status-indicator status-offline';
+                statusText.textContent = '服务连接失败';
+            }
+        }
+        
+        // 处理主题分析
+        async function processTopic() {
+            const topic = topicInput.value.trim();
+            
+            if (!topic) {
+                alert('请输入要分析的主题');
+                return;
+            }
+            
+            // 显示加载状态
+            processBtn.disabled = true;
+            loading.style.display = 'block';
+            resultSection.style.display = 'none';
+            
+            try {
+                const response = await fetch('/process', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ topic: topic })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultContent.innerHTML = `
+                        <h3>主题: ${topic}</h3>
+                        <div style="white-space: pre-wrap; line-height: 1.8; margin-top: 15px;">
+                            ${data.result}
+                        </div>
+                    `;
+                    resultContent.className = 'result-card';
+                } else {
+                    resultContent.innerHTML = `
+                        <h3>错误</h3>
+                        <p>${data.error}</p>
+                    `;
+                    resultContent.className = 'result-card error';
+                }
+                
+                resultSection.style.display = 'block';
+                
+            } catch (error) {
+                resultContent.innerHTML = `
+                    <h3>网络错误</h3>
+                    <p>请求处理失败，请检查网络连接</p>
+                `;
+                resultContent.className = 'result-card error';
+                resultSection.style.display = 'block';
+            } finally {
+                processBtn.disabled = false;
+                loading.style.display = 'none';
+            }
+        }
+        
+        // 事件监听
+        processBtn.addEventListener('click', processTopic);
+        
+        topicInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                processTopic();
+            }
+        });
+        
+        // 示例按钮点击事件
+        exampleBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                topicInput.value = btn.getAttribute('data-topic');
+                processTopic();
+            });
+        });
+        
+        // 初始化检查状态
+        checkStatus();
+        setInterval(checkStatus, 30000); // 每30秒检查一次状态
+    </script>
+</body>
+</html>
